@@ -3,7 +3,7 @@
 	#	Coder    :  Ian Newton
 	#	Date     :  24th May,2011
 	#	Test version  
-	#	controller to process actions queued in the media_actions table and report status to the admin server
+	#	Encoder-api cron index page
 \*=========================================================================================*/
 
 require_once("../lib/config.php");

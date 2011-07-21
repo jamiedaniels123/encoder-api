@@ -2,20 +2,21 @@
 /*========================================================================================*\
 	#	Coder    :  Ian Newton
 	#	Date     :  25th May,2011
-	#	Test version  
+	#	Encoder-api config  file 
 /*========================================================================================*/
 
 //___Debug_________________________________________________________________________________________//
 
 //	ini_set(display_errors,On);
+	$error='';
 
 //___DB CONNECTION_________________________________________________________________________________//
 
-$dbLogin = array ('dbhost' => "localhost", 'dbname' => "encoder-api", 'dbusername' => "in625", 'dbuserpass' => "ge5HUQes");
+	$dbLogin = array ('dbhost' => "localhost", 'dbname' => "encoder-api", 'dbusername' => "in625", 'dbuserpass' => "ge5HUQes");
 
 //___TIME ZONE_________________________________________________________________________________//
 
-date_default_timezone_set("Europe/London");
+	date_default_timezone_set("Europe/London");
 
 //____SCP SOURCE/DESTINATIONS_________________________________________________________________//
 
