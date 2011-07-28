@@ -136,11 +136,11 @@ class Default_Model_Action_Class
 		return $retData;
 	}
 
-	public function doQueueAction($function, $mArr, $cqIndex)
+	public function doQueueAction($function, $mArr, $cqIndex, $cqCqIndex)
 	{
 		global $mysqli,$outObj,$mediaUrl;
 
-			$retData = $this->$function($mArr,1,$cqIndex);
+			$retData = $this->$function($mArr,1,$cqCqIndex);
 //			echo $function." - ";
 			if ($retData['result']=='Y') {
 //	echo $sqlQuery;
@@ -164,7 +164,7 @@ class Default_Model_Action_Class
 				
 		$outFile = urlencode($mArr['source_path'].$mArr['filename']);
 		$inFile = $mArr['workflow']."/".$mArr['filename'];
- 		$retData['scp'] = $this->transfer($source['encoder'].$inFile , $destination['media'].$outFile);
+ 		$retData['scp'] = $this->transfer($source['encoder'].$inFile , $destination['media'].$cqIndex."_".$outFile);
 //		print_r($retData['scp']);
 		if ($retData['scp'][0]==0) {
 			$retData['result']='Y'; 

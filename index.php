@@ -39,10 +39,17 @@ if ($dataMess[1]!='') {
 }else{
 	$m_data = array('status'=>'NACK', 'data'=>'No request values set!', 'timestamp'=>time());
 }
-		if (isset($m_data['status']) && $m_data['status']=='Y') {
-			$result = $mysqli->query("INSERT INTO `api_log` (`al_message`, `al_reply`, `al_timestamp`) VALUES ( '".serialize($dataMess[1])."', '".serialize($m_data)."', '".date("Y-m-d H:i:s", time())."' )");
-		}
 
-echo json_encode($m_data);
+// Log the command and response
+	if (!isset($m_data['status']) || $m_data['status']!='ACK') {
+		$sqlLogging = "	INSERT INTO `api_log` (`al_message`, `al_reply`, `al_debug`, `al_timestamp`) 
+								VALUES ( '".urldecode($dataStream)."', '".serialize($m_data)."', '".ob_get_contents()."', '".date("Y-m-d H:i:s", time())."' )";
+		$result = $mysqli->query($sqlLogging);
+	}
+
+// Get rid of any debug and output the result to the caller
+	ob_clean();
+	file_put_contents("php://output", json_encode($m_data));
+	ob_end_clean();
 
 ?>

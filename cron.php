@@ -24,7 +24,7 @@
 
 	if (isset($result0->num_rows)) {
 		while(	$row0 = $result0->fetch_object()) { 
-			$m_data= $dataObj->doQueueAction($row0->cr_function, unserialize($row0->cq_data), $row0->cq_index);	
+			$m_data= $dataObj->doQueueAction($row0->cr_function, unserialize($row0->cq_data), $row0->cq_index, $row0->cq_cq_index);	
 		}
 	}
 
