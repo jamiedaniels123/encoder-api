@@ -33,18 +33,16 @@
 //	$sqlQuery6="DELETE FROM `queue_commands` WHERE DATE(cq_time) < date_sub(curdate(), interval 24 hour)  AND `cq_status`='R' ";
 //	$mysqli->query($sqlQuery6);
 
-// Clean up old processes and api-log
+// Clean up old processes, completed commands and api-log
 
-	$sqlQuery6="	DELETE FROM `api_process` 
+	$mysqli->query("	DELETE FROM `api_process` 
 						WHERE ap_timestamp < (now() - interval 5 minute) 
-						AND `ap_status`='N' ";
-	$mysqli->query($sqlQuery6);
+						AND `ap_status`='N' ");
+	$mysqli->query("	DELETE FROM `queue_commands` 
+							WHERE DATE(cq_time) < date_sub(curdate(), interval 24 hour)  
+							AND `cq_status`='R' ");
+	$mysqli->query("	DELETE FROM `api_log` 
+							WHERE al_timestamp < (now() - interval 24 hour) ");
 
-// Report the status and api messages
-
-//	if (!isset($m_data['status']) || $m_data['status']!='ACK') {
-//		$sqlLogging = "INSERT INTO `api_log` (`al_message`, `al_reply`, `al_timestamp`) VALUES ( '".urldecode($dataStream)."', '".serialize($m_data)."', '".date("Y-m-d H:i:s", time())."' )";
-//		$result = $mysqli->query($sqlLogging);
-//	}
 
 ?>

@@ -166,9 +166,14 @@ class Default_Model_Action_Class
 		$inFile = $mArr['workflow']."/".$mArr['filename'];
  		$retData['scp'] = $this->transfer($source['encoder'].$inFile , $destination['media'].$cqIndex."_".$outFile);
 //		print_r($retData['scp']);
+
+		if ($retData['scp'][0]==0) $retData['result']='Y'; 
+
 		if ($retData['scp'][0]==0) {
 			$retData['result']='Y'; 
 			unlink($source['encoder'].$inFile);
+		} else {
+			$retData['result']='F';
 		}
 		return $retData;
 	}
