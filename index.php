@@ -15,6 +15,8 @@ $dataStream = file_get_contents("php://input");
 
 $dataMess=explode('=',urldecode($dataStream));
 
+ob_start();
+
 if ($dataMess[1]!='') {
 
 	$data=json_decode($dataMess[1],true);
@@ -41,10 +43,9 @@ if ($dataMess[1]!='') {
 }
 
 // Log the command and response
-	if (!isset($m_data['status']) || $m_data['status']!='ACK') {
-		$sqlLogging = "	INSERT INTO `api_log` (`al_message`, `al_reply`, `al_debug`, `al_timestamp`) 
-								VALUES ( '".urldecode($dataStream)."', '".serialize($m_data)."', '".ob_get_contents()."', '".date("Y-m-d H:i:s", time())."' )";
-		$result = $mysqli->query($sqlLogging);
+	if (isset($m_data['status']) && $m_data['status']!='N') {
+		$result = $mysqli->query("	INSERT INTO `api_log` (`al_message`, `al_reply`, `al_debug`, `al_timestamp`) 
+											VALUES ( '".urldecode($dataStream)."', '".serialize($m_data)."', '".ob_get_contents()."', '".date("Y-m-d H:i:s", time())."' )");
 	}
 
 // Get rid of any debug and output the result to the caller
