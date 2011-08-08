@@ -142,10 +142,10 @@ class Default_Model_Action_Class
 		return $retData;
 	}
 
-	public function doQueueAction($function, $mArr, $cqIndex, $cqCqIndex)
+	public function doQueueAction($function, $mArr, $cqIndex, $cqCqIndex, $step)
 	{
 
-			$retData = $this->$function($mArr,1,$cqCqIndex);
+			$retData = $this->$function($mArr,1,$cqCqIndex, $step);
 //			echo $function." - ";
 			if ($retData['result']=='Y') {
 //	echo $sqlQuery;
@@ -162,7 +162,7 @@ class Default_Model_Action_Class
 		return $retData;
 	}
 
-	function doEncoderPushToMedia($mArr,$mNum,$cqIndex)
+	function doEncoderPushToMedia($mArr,$mNum,$cqIndex,$step)
 	{
 		global $source, $destination; 
 
@@ -177,14 +177,19 @@ class Default_Model_Action_Class
 
 		if ($retData['scp'][0]==0) {
 			$retData['result']='Y'; 
-			unlink($source['encoder'].$inFile);
+
+			$result0 = $this->m_mysqli->query("
+				SELECT cq_filename 
+				FROM queue_commands
+				WHERE cq_filename = '".$mArr['source_filename']."' AND cq_status='N' AND cq_step=".$step." ");
+			if ($result0->num_rows==1) unlink($source['encoder'].$inFile);
 		} else {
 			$retData['result']='F';
 		}
 		return $retData;
 	}
 
-	public function doEncoderPullFile($mArr,$mNum,$cqIndex)
+	public function doEncoderPullFile($mArr,$mNum,$cqIndex,$step)
 	{
 		global $source, $destination; 
 
@@ -196,7 +201,7 @@ class Default_Model_Action_Class
 		return $retData;
 	}
 
-	public function doEncoderCheckOutput($mArr,$mNum,$cqIndex)
+	public function doEncoderCheckOutput($mArr,$mNum,$cqIndex,$step)
 	{
 
 		$retData= array('cqIndex'=>$cqIndex, 'workflow' =>$mArr['workflow'], 'source_path'=> $mArr['source_path'], 'source_filename'=> $mArr['source_filename'], 'scp'=>'', 'number'=> $mNum, 'result'=> 'N') ;
@@ -208,7 +213,7 @@ class Default_Model_Action_Class
 		return $retData;
 	}
 
-	public function doStatusEncoder($mArr,$mNum,$cqIndex)
+	public function doStatusEncoder($mArr,$mNum,$cqIndex,$step)
 	{
 		$retData= array( 'number'=> $mNum,  'result'=> 'Y') ;
 
