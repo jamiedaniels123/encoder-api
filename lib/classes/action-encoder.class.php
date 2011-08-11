@@ -128,7 +128,7 @@ class Default_Model_Action_Class
 		$nameArr = pathinfo($mArr['source_filename']);
 		$this->m_mysqli->query("
 			INSERT INTO `queue_commands` (`cq_command`, `cq_filename`, `cq_cq_index`, `cq_mq_index`, `cq_step`, `cq_data`, `cq_time`, `cq_update`, `cq_status`) 
-			VALUES ('".$action."','".$nameArr['filename']."','".$cqIndex."','".$mqIndex."','".$step."','".serialize($mArr)."','".date("Y-m-d H:i:s", $timestamp)."', '', 'N')");
+			VALUES ('".$action."','".$nameArr['filename']."','".$cqIndex."','".$mqIndex."','".$step."','".json_encode($mArr)."','".date("Y-m-d H:i:s", $timestamp)."', '', 'N')");
 		$error = $this->m_mysqli->error;
 		if ($error=='') { 
 			$retData['status']='Y';
@@ -151,7 +151,7 @@ class Default_Model_Action_Class
 //	echo $sqlQuery;
 				$result = $this->m_mysqli->query("
 					UPDATE `queue_commands` 
-					SET `cq_update` = '".date("Y-m-d H:i:s", time())."' ,`cq_status`= 'Y', cq_result='".serialize($mArr)."' where cq_index='".$cqIndex."' ");
+					SET `cq_update` = '".date("Y-m-d H:i:s", time())."' ,`cq_status`= 'Y', cq_result='".json_encode($mArr)."' where cq_index='".$cqIndex."' ");
 			}
 	}
 
@@ -233,7 +233,7 @@ class Default_Model_Action_Class
 		if ($result0->num_rows) {
 			$i=0;
 			while(	$row0 = $result0->fetch_object()) { 
-				$cqIndexData[] = array( 'status'=>$row0->cq_status, 'data'=>unserialize($row0->cq_result), 'cqIndex'=>$row0->cq_cq_index, 'mqIndex'=>$row0->cq_mq_index, 'step'=>$row0->cq_step  );
+				$cqIndexData[] = array( 'status'=>$row0->cq_status, 'data'=>json_decode($row0->cq_result, true), 'cqIndex'=>$row0->cq_cq_index, 'mqIndex'=>$row0->cq_mq_index, 'step'=>$row0->cq_step  );
 				$result = $this->m_mysqli->query("
 					UPDATE `queue_commands` 
 					SET `cq_status`= 'R' where cq_index='".$row0->cq_index."' ");
