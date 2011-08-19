@@ -35,11 +35,11 @@ if ($dataMess[1]!='') {
 		}
 
 	}else{
-		$m_data = array('status'=>'NACK', 'data'=>'Command not known! - '.$apiName, 'timestamp'=>time());
+		$m_data = array('status'=>'NACK', 'data'=>'Command not known! - '.$apiName.'-'.$version, 'timestamp'=>time());
 	}
 
 }else{
-	$m_data = array('status'=>'NACK', 'data'=>'No request values set! - '.$apiName, 'timestamp'=>time());
+	$m_data = array('status'=>'NACK', 'data'=>'No request values set! - '.$apiName.'-'.$version, 'timestamp'=>time());
 }
 
 // Log the command and response
