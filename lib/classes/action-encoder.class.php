@@ -24,9 +24,9 @@ class Default_Model_Action_Class
 	// onto the relevant user account of each destination server.  Note: exact user/server set
 	// in global array $source and $destination.
 	
-	$cmdline = "/usr/bin/scp -pv ".escapeshellcmd($src)." ".escapeshellcmd($dest)." 2>&1";
+	$cmdline = "/usr/bin/scp -p ".escapeshellcmd($src)." ".escapeshellcmd($dest)." 2>&1";
 
-	echo "<p>Transfer cmd line =".$cmdline."</p>\n";  // debug
+//	echo "<p>Transfer cmd line =".$cmdline."</p>\n";  // debug
 //error_log("Transfer cmd line =".$cmdline);  // debug
 
 	exec($cmdline, $out, $code);
@@ -151,7 +151,8 @@ class Default_Model_Action_Class
 //	echo $sqlQuery;
 				$result = $this->m_mysqli->query("
 					UPDATE `queue_commands` 
-					SET `cq_update` = '".date("Y-m-d H:i:s", time())."' ,`cq_status`= '".$retData['result']."', cq_result='".json_encode($mArr)."' where cq_index='".$cqIndex."' ");
+					SET `cq_update` = '".date("Y-m-d H:i:s", time())."' ,`cq_status`= '".$retData['result']."', cq_result='".json_encode($retData)."' 
+					WHERE cq_index='".$cqIndex."' ");
 			}
 	}
 
@@ -245,7 +246,7 @@ class Default_Model_Action_Class
 		$retData['result'] = 'N';
 
 // Check and/or start 2s polling process
-		$apCommand="curl -d \"number=40&time=2\" http://kmi-encoder04/poll-output.php";	
+		$apCommand="curl -d \"number=40&time=2\" ".$destination['encoder-api']."/poll-output.php";	
 		$this->startCheckProcess($apCommand); 
 
 		return $retData;
@@ -261,29 +262,39 @@ class Default_Model_Action_Class
 	public function doPollEncoder($mArr,$mNum)
 	{
 		
-		$retData = array( 'command'=>'poll-encoder', 'status'=>'N', 'data'=>'Nothing to do!', 'number'=>0, 'timestamp'=>time());
+		$retData = array( 'command'=>'poll-encoder', 'status'=>'ACK', 'number'=>0, 'timestamp'=>time());
 
 		$result0 = $this->m_mysqli->query("
 			SELECT * 
 			FROM queue_commands AS cq 
-			WHERE  cq.cq_status IN ('Y','F')  
+			WHERE  cq.cq_status IN ('Y','F') 
 			ORDER BY cq.cq_time");
 		if ($result0->num_rows) {
 			$i=0;
 			while(	$row0 = $result0->fetch_object()) { 
-				$cqIndexData[] = array( 'status'=>$row0->cq_status, 'data'=>json_decode($row0->cq_result, true), 'cqIndex'=>$row0->cq_cq_index, 'mqIndex'=>$row0->cq_mq_index, 'step'=>$row0->cq_step  );
-				$result = $this->m_mysqli->query("
+				$cqIndexData[$i] = json_decode($row0->cq_result, true);
+				$cqIndexData[$i]['status']= $row0->cq_status;
+				$cqIndexData[$i]['cqIndex']= $row0->cq_cq_index;
+				$cqIndexData[$i]['mqIndex']= $row0->cq_mq_index;
+				$cqIndexData[$i]['step']= $row0->cq_step;
+				$this->m_mysqli->query("
 					UPDATE `queue_commands` 
 					SET `cq_status`= 'R' where cq_index='".$row0->cq_index."' ");
 				$i++;
 			}
-			$retData['data']=$cqIndexData;
-			$retData['status']= 'Y';
-			$retData['number']= $i;
-			
+			if (isset($cqIndexData)) {
+				$retData['data']=$cqIndexData; 
+				$retData['status']= 'Y';
+				$retData['number']= $i+1;
+// error_log("Error = ".json_encode($retData));  // debug
+			} else {
+				$retData['data']='Encoder api - Nothing to do!';
+			}
 		}
 		return $retData;
 	}
+
+
 
 }
 ?>

@@ -35,8 +35,9 @@
   $destination = array(
   	'admin-scp' => 'admin-transfer-dev@podcast-api-dev.open.ac.uk:/data/web/podcast-api-dev.open.ac.uk/file-transfer/destination/',
   	'media-scp' => 'media-transfer-dev@media-podcast-api-dev.open.ac.uk:/data/web/media-podcast-api-dev.open.ac.uk/file-transfer/destination/',
-  	'encoder-input' => '/Volumes/Data/Episode/EpisodeEngine/Inputs/',
-  	'encoder-output' => '/Volumes/Data/Episode/EpisodeEngine/Outputs/'
+	'encoder-api' => 'http://kmi-encoder-api-dev.open.ac.uk', 
+   	'encoder-input' => '/Volumes/Data/Episode/EpisodeEngine/Inputs/',
+ 	'encoder-output' => '/Volumes/Data/Episode/EpisodeEngine/Outputs/'
   );
 
 //____Default workflow mapping _________________________________________________________________//

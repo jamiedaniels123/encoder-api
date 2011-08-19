@@ -43,7 +43,7 @@ if ($dataMess[1]!='') {
 }
 
 // Log the command and response
-	if (isset($m_data['status']) && $m_data['status']!='N') {
+	if (!isset($m_data['status']) || $m_data['status']!='ACK') {
 		$result = $mysqli->query("	INSERT INTO `api_log` (`al_message`, `al_reply`, `al_debug`, `al_timestamp`) 
 											VALUES ( '".json_encode($data)."', '".json_encode($m_data)."', '', '".date("Y-m-d H:i:s", time())."' )");
 	}
