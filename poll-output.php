@@ -20,11 +20,13 @@ require_once("lib/classes/polling.class.php");
 
 	for ( $i = 1; $i <= $number; $i++) {
 
-		$files = $pollObj->read_folder_directory($source['encoder']);
+		$files = $pollObj->read_folder_directory($destination['encoder-output']);
+
+// echo $destination['encoder-output']." <br />";
 		
 		if (is_array($files))
 		{
-//			print_r($files);
+			print_r($files);
 			$pollObj->check_folder_directory($files);
 			
 		} else {

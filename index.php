@@ -35,17 +35,17 @@ if ($dataMess[1]!='') {
 		}
 
 	}else{
-		$m_data = array('status'=>'NACK', 'data'=>'Command not known!', 'timestamp'=>time());
+		$m_data = array('status'=>'NACK', 'data'=>'Command not known! - '.$apiName, 'timestamp'=>time());
 	}
 
 }else{
-	$m_data = array('status'=>'NACK', 'data'=>'No request values set!', 'timestamp'=>time());
+	$m_data = array('status'=>'NACK', 'data'=>'No request values set! - '.$apiName, 'timestamp'=>time());
 }
 
 // Log the command and response
 	if (isset($m_data['status']) && $m_data['status']!='N') {
 		$result = $mysqli->query("	INSERT INTO `api_log` (`al_message`, `al_reply`, `al_debug`, `al_timestamp`) 
-											VALUES ( '".urldecode($dataStream)."', '".serialize($m_data)."', '".ob_get_contents()."', '".date("Y-m-d H:i:s", time())."' )");
+											VALUES ( '".json_encode($data)."', '".json_encode($m_data)."', '', '".date("Y-m-d H:i:s", time())."' )");
 	}
 
 // Get rid of any debug and output the result to the caller

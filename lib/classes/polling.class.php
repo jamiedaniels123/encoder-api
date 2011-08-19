@@ -113,7 +113,7 @@ class Default_Model_Polling_Class
 	
 	public function check_folder_directory($files){
 		
-		global $source;
+		global $destination;
 		
 			$j=0;
 			foreach($files as $k0 => $v0){
@@ -130,6 +130,8 @@ class Default_Model_Polling_Class
 						if ($result0->num_rows ==0) {
 								$result = $this->m_mysqli->query("	INSERT INTO `watch_file` (`wf_filename`, `wf_fileoutname`, `wf_folder`, `wf_extension`, `wf_filesize0`, `wf_filedate0`, `wf_count`, `wf_status`) 
 																	VALUES ( '".$nameArr['shortname']."',  '".$v1['file']."', '".$k0."', '.".$nameArr['extension']."', '".$v1['size']."', '".$v1['date']."', '0', 'W' )");
+//								echo "INSERT INTO `watch_file` (`wf_filename`, `wf_fileoutname`, `wf_folder`, `wf_extension`, `wf_filesize0`, `wf_filedate0`, `wf_count`, `wf_status`) 
+//																	VALUES ( '".$nameArr['shortname']."',  '".$v1['file']."', '".$k0."', '.".$nameArr['extension']."', '".$v1['size']."', '".$v1['date']."', '0', 'W' )";
 							$wf_row = $this->m_mysqli->insert_id;
 						}else{
 							$row0 = $result0->fetch_object();
@@ -148,8 +150,7 @@ class Default_Model_Polling_Class
 							FROM queue_commands 
 							WHERE cq_filename LIKE '".$nameArr['shortname']."%'");
 						if ($result5->num_rows == 0) {
-							echo "unlink( ".$source['encoder'].$k0."/".$v1['file'].") - ";
-							$unlink_file= $source['encoder'].$k0."/".$v1['file'];
+							$unlink_file= $destination['encoder-output'].$k0."/".$v1['file'];
 							unlink($unlink_file);
 							$this->m_mysqli->query("
 								DELETE FROM watch_file 

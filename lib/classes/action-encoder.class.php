@@ -24,9 +24,9 @@ class Default_Model_Action_Class
 	// onto the relevant user account of each destination server.  Note: exact user/server set
 	// in global array $source and $destination.
 	
-	$cmdline = "/usr/bin/scp -p ".escapeshellcmd($src)." ".escapeshellcmd($dest)." 2>&1";
+	$cmdline = "/usr/bin/scp -pv ".escapeshellcmd($src)." ".escapeshellcmd($dest)." 2>&1";
 
-//	echo "<p>Transfer cmd line =".$cmdline."</p>\n";  // debug
+	echo "<p>Transfer cmd line =".$cmdline."</p>\n";  // debug
 //error_log("Transfer cmd line =".$cmdline);  // debug
 
 	exec($cmdline, $out, $code);
@@ -146,12 +146,12 @@ class Default_Model_Action_Class
 	{
 
 			$retData = $this->$function($mArr,1,$cqCqIndex, $step);
-//			echo $function." - ";
-			if ($retData['result']=='Y') {
+			echo $function." - ";
+			if ($retData['result']=='Y' || $retData['result']=='F') {
 //	echo $sqlQuery;
 				$result = $this->m_mysqli->query("
 					UPDATE `queue_commands` 
-					SET `cq_update` = '".date("Y-m-d H:i:s", time())."' ,`cq_status`= 'Y', cq_result='".json_encode($mArr)."' where cq_index='".$cqIndex."' ");
+					SET `cq_update` = '".date("Y-m-d H:i:s", time())."' ,`cq_status`= '".$retData['result']."', cq_result='".json_encode($mArr)."' where cq_index='".$cqIndex."' ");
 			}
 	}
 
@@ -166,14 +166,15 @@ class Default_Model_Action_Class
 	{
 		global $source, $destination; 
 
-		$retData= array('cqIndex'=>$cqIndex, 'workflow' =>$mArr['workflow'], 'source_path'=>$mArr['source_path'], 'source_filename'=>$mArr['source_filename'], 'scp'=>'', 'number'=>$mNum, 'result'=>'N') ;
+		$retData = $mArr;
+		$retData['number'] = $mNum;
+		$retData['result'] = 'N';
 				
 		$outFile = urlencode($mArr['source_path'].$mArr['source_filename']);
 		$inFile = $mArr['workflow']."/".$mArr['source_filename'];
- 		$retData['scp'] = $this->transfer($source['encoder'].$inFile , $destination['media'].$cqIndex."_".$outFile);
+		chmod($source['encoder-files'].$inFile, 0664);
+ 		$retData['scp'] = $this->transfer($destination['encoder-output'].$inFile , $destination['media-scp'].$cqIndex."_".$outFile);
 //		print_r($retData['scp']);
-
-		if ($retData['scp'][0]==0) $retData['result']='Y'; 
 
 		if ($retData['scp'][0]==0) {
 			$retData['result']='Y'; 
@@ -182,29 +183,66 @@ class Default_Model_Action_Class
 				SELECT cq_filename 
 				FROM queue_commands
 				WHERE cq_filename = '".$mArr['source_filename']."' AND cq_status='N' AND cq_step=".$step." ");
-			if ($result0->num_rows==1) unlink($source['encoder'].$inFile);
+			if ($result0->num_rows==1) unlink($destination['encoder-output'].$inFile);
 		} else {
 			$retData['result']='F';
+			$retData['debug']="Encoder workflow - ".$destination['encoder-output'].$mArr['workflow']." not found! ";
 		}
 		return $retData;
 	}
 
-	public function doEncoderPullFile($mArr,$mNum,$cqIndex,$step)
+	public function doEncoderPullToInput($mArr,$mNum,$cqIndex,$step)
 	{
 		global $source, $destination; 
 
-		$retData= array('cqIndex'=>$cqIndex, 'workflow' =>$mArr['workflow'], 'source_path'=> '', 'source_filename'=> $mArr['source_filename'], 'scp'=>'', 'number'=> $mNum, 'result'=> 'N') ;
+		$retData = $mArr;
+		$retData['number'] = $mNum;
+		$retData['result'] = 'N';
 
- 		$retData['scp'] = $this->transfer($source['admin'].$mArr['source_path'].$mArr['source_filename'], $destination['encoder'].$mArr['workflow']."/".$mArr['source_filename']);
-		print_r($retData['scp']);
-		if ($retData['scp'][0]==0) $retData['result']='Y';
+		if (is_dir($destination['encoder-input'].$mArr['workflow'])) {
+
+			$retData['scp'] = $this->transfer($source['admin-scp'].$mArr['source_path'].$mArr['source_filename'], $destination['encoder-input'].$mArr['workflow']."/".$mArr['source_filename']);
+//		print_r($retData['scp']);
+			if ($retData['scp'][0]==0)
+				$retData['result']='Y';
+			else
+				$retData['result']='F';
+		} else {
+				$retData['result']='F';
+				$retData['debug']="Encoder workflow - ".$destination['encoder-input'].$mArr['workflow']." not found! ";
+		}
 		return $retData;
 	}
 
-	public function doEncoderCheckOutput($mArr,$mNum,$cqIndex,$step)
+	public function doEncoderPullToOutput($mArr,$mNum,$cqIndex,$step)
+	{
+		global $source, $destination; 
+
+		$retData = $mArr;
+		$retData['number'] = $mNum;
+		$retData['result'] = 'N';
+
+		if (is_dir($destination['encoder-output'].$mArr['workflow'])) {
+
+			$retData['scp'] = $this->transfer($source['admin-scp'].$mArr['source_path'].$mArr['source_filename'], $destination['encoder-output'].$mArr['workflow']."/".$mArr['source_filename']);
+//		print_r($retData['scp']);
+			if ($retData['scp'][0]==0)
+				$retData['result']='Y';
+			else
+				$retData['result']='F';
+		} else {
+				$retData['result']='F';
+				$retData['debug']="Encoder workflow - ".$destination['encoder-input'].$mArr['workflow']." not found! ";
+		}
+		return $retData;
+	}
+
+	public function doEncoderCheckOutput($mArr, $mNum, $cqIndex, $step)
 	{
 
-		$retData= array('cqIndex'=>$cqIndex, 'workflow' =>$mArr['workflow'], 'source_path'=> $mArr['source_path'], 'source_filename'=> $mArr['source_filename'], 'scp'=>'', 'number'=> $mNum, 'result'=> 'N') ;
+		$retData = $mArr;
+		$retData['number'] = $mNum;
+		$retData['result'] = 'N';
 
 // Check and/or start 2s polling process
 		$apCommand="curl -d \"number=40&time=2\" http://kmi-encoder04/poll-output.php";	
@@ -228,7 +266,7 @@ class Default_Model_Action_Class
 		$result0 = $this->m_mysqli->query("
 			SELECT * 
 			FROM queue_commands AS cq 
-			WHERE  cq.cq_status = 'Y' 
+			WHERE  cq.cq_status IN ('Y','F')  
 			ORDER BY cq.cq_time");
 		if ($result0->num_rows) {
 			$i=0;
