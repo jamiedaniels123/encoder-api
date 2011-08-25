@@ -182,7 +182,7 @@ class Default_Model_Polling_Class
 			$mData['destination_filename'] = $row3->wf_filename.$row3->wm_target_filename;
 			if ($row3->wm_target_folder!='' || $row3->wm_target_folder!='/')
 				$mData['destination_path'] .= $row3->wm_target_folder;
-			$cqData = unserialize($row3->cq_data, true);
+			$cqData = unserialize($row3->cq_data);
 			$mData['original_filename'] = $cqData['source_filename'];
 			$mData['flavour'] = $row3->wm_flavour;
 			$mData['duration'] = '1.35';
