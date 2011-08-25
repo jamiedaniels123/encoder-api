@@ -15,8 +15,6 @@ $dataStream = file_get_contents("php://input");
 
 $dataMess=explode('=',urldecode($dataStream));
 
-ob_start();
-
 if ($dataMess[1]!='') {
 
 	$data=json_decode($dataMess[1],true);
@@ -43,9 +41,13 @@ if ($dataMess[1]!='') {
 }
 
 // Log the command and response
-	if (!isset($m_data['status']) || $m_data['status']!='ACK') {
+	if (!isset($m_data['status']) || $m_data['status']!='OK') {
+		if (isset($data) && is_array($data)) 
+			$p_data = json_encode($data);
+		else
+			$p_data = "Cannot decode message or no input data array!";
 		$result = $mysqli->query("	INSERT INTO `api_log` (`al_message`, `al_reply`, `al_debug`, `al_timestamp`) 
-											VALUES ( '".json_encode($data)."', '".json_encode($m_data)."', '', '".date("Y-m-d H:i:s", time())."' )");
+											VALUES ( '".$p_data."', '".json_encode($m_data)."', '', '".date("Y-m-d H:i:s", time())."' )");
 	}
 
 // Get rid of any debug and output the result to the caller

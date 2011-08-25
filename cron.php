@@ -23,10 +23,10 @@
 
 	if (isset($result0->num_rows)) {
 		while(	$row0 = $result0->fetch_object()) { 
-			$m_data= $dataObj->doQueueAction($row0->cr_function, json_decode($row0->cq_data, true), $row0->cq_index, $row0->cq_cq_index, $row0->cq_step);	
+			$m_data= $dataObj->doQueueAction($row0->cr_function, unserialize($row0->cq_data), $row0->cq_index, $row0->cq_cq_index, $row0->cq_step);	
 		}
 	}
-
+	
 // Clean up old completed commands
 
 //	$sqlQuery6="DELETE FROM `queue_commands` WHERE DATE(cq_time) < date_sub(curdate(), interval 24 hour)  AND `cq_status`='R' ";

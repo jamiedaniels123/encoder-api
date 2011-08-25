@@ -128,7 +128,7 @@ class Default_Model_Action_Class
 		$nameArr = pathinfo($mArr['source_filename']);
 		$this->m_mysqli->query("
 			INSERT INTO `queue_commands` (`cq_command`, `cq_filename`, `cq_cq_index`, `cq_mq_index`, `cq_step`, `cq_data`, `cq_time`, `cq_update`, `cq_status`) 
-			VALUES ('".$action."','".$nameArr['filename']."','".$cqIndex."','".$mqIndex."','".$step."','".json_encode($mArr)."','".date("Y-m-d H:i:s", $timestamp)."', '', 'N')");
+			VALUES ('".$action."','".$nameArr['filename']."','".$cqIndex."','".$mqIndex."','".$step."','".serialize($mArr)."','".date("Y-m-d H:i:s", $timestamp)."', '', 'N')");
 		$error = $this->m_mysqli->error;
 		if ($error=='') { 
 			$retData['status']='Y';
@@ -151,7 +151,7 @@ class Default_Model_Action_Class
 //	echo $sqlQuery;
 				$result = $this->m_mysqli->query("
 					UPDATE `queue_commands` 
-					SET `cq_update` = '".date("Y-m-d H:i:s", time())."' ,`cq_status`= '".$retData['result']."', cq_result='".json_encode($retData)."' 
+					SET `cq_update` = '".date("Y-m-d H:i:s", time())."' ,`cq_status`= '".$retData['result']."', cq_result='".serialize($retData)."' 
 					WHERE cq_index='".$cqIndex."' ");
 			}
 	}
@@ -173,7 +173,8 @@ class Default_Model_Action_Class
 				
 		$outFile = urlencode($mArr['source_path'].$mArr['source_filename']);
 		$inFile = $mArr['workflow']."/".$mArr['source_filename'];
-		chmod($source['encoder-files'].$inFile, 0664);
+
+		chmod($destination['encoder-output'].$inFile, 0665);
  		$retData['scp'] = $this->transfer($destination['encoder-output'].$inFile , $destination['media-scp'].$cqIndex."_".$outFile);
 //		print_r($retData['scp']);
 
@@ -199,10 +200,12 @@ class Default_Model_Action_Class
 		$retData = $mArr;
 		$retData['number'] = $mNum;
 		$retData['result'] = 'N';
+		$inFilePath = $source['admin-scp'].$mArr['source_path'].$mArr['source_filename'];
+		$outFilePath = $destination['encoder-input'].$mArr['workflow']."/".$mArr['source_filename'];
 
 		if (is_dir($destination['encoder-input'].$mArr['workflow'])) {
 
-			$retData['scp'] = $this->transfer($source['admin-scp'].$mArr['source_path'].$mArr['source_filename'], $destination['encoder-input'].$mArr['workflow']."/".$mArr['source_filename']);
+			$retData['scp'] = $this->transfer($inFilePath, $outFilePath);
 //		print_r($retData['scp']);
 			if ($retData['scp'][0]==0)
 				$retData['result']='Y';
@@ -210,7 +213,7 @@ class Default_Model_Action_Class
 				$retData['result']='F';
 		} else {
 				$retData['result']='F';
-				$retData['debug']="Encoder workflow - ".$destination['encoder-input'].$mArr['workflow']." not found! ";
+				$retData['debug']="Encoder workflow - ".$destination['encoder-input'].$mArr['workflow']." or source - ".$inFilePath." not found! ";
 		}
 		return $retData;
 	}
@@ -222,10 +225,12 @@ class Default_Model_Action_Class
 		$retData = $mArr;
 		$retData['number'] = $mNum;
 		$retData['result'] = 'N';
+		$nameArr = pathinfo($mArr['source_filename']);
+		$inFilePath = $source['admin-scp'].$mArr['source_path'].$mArr['source_filename'];
+		$outFilePath = $destination['encoder-output'].$mArr['workflow']."/".$nameArr['filename']."-____.".$nameArr['extension'];
 
 		if (is_dir($destination['encoder-output'].$mArr['workflow'])) {
-
-			$retData['scp'] = $this->transfer($source['admin-scp'].$mArr['source_path'].$mArr['source_filename'], $destination['encoder-output'].$mArr['workflow']."/".$mArr['source_filename']);
+			$retData['scp'] = $this->transfer($inFilePath, $outFilePath);
 //		print_r($retData['scp']);
 			if ($retData['scp'][0]==0)
 				$retData['result']='Y';
@@ -233,14 +238,14 @@ class Default_Model_Action_Class
 				$retData['result']='F';
 		} else {
 				$retData['result']='F';
-				$retData['debug']="Encoder workflow - ".$destination['encoder-input'].$mArr['workflow']." not found! ";
+				$retData['debug']="Encoder workflow - ".$destination['encoder-output'].$mArr['workflow']." or source - ".$inFilePath." not found! ";
 		}
 		return $retData;
 	}
 
 	public function doEncoderCheckOutput($mArr, $mNum, $cqIndex, $step)
 	{
-
+		global $destination;
 		$retData = $mArr;
 		$retData['number'] = $mNum;
 		$retData['result'] = 'N';
@@ -262,7 +267,7 @@ class Default_Model_Action_Class
 	public function doPollEncoder($mArr,$mNum)
 	{
 		
-		$retData = array( 'command'=>'poll-encoder', 'status'=>'ACK', 'number'=>0, 'timestamp'=>time());
+		$retData = array( 'command'=>'poll-encoder', 'status'=>'OK', 'number'=>0, 'timestamp'=>time());
 
 		$result0 = $this->m_mysqli->query("
 			SELECT * 
@@ -272,7 +277,8 @@ class Default_Model_Action_Class
 		if ($result0->num_rows) {
 			$i=0;
 			while(	$row0 = $result0->fetch_object()) { 
-				$cqIndexData[$i] = json_decode($row0->cq_result, true);
+				$cqIndexData[$i] = unserialize($row0->cq_result);
+				if(isset($cqIndexData[$i]['debug'])) $cqIndexData[$i]['debug'] = strtr(base64_encode(addslashes(gzcompress(serialize($cqIndexData[$i]['debug']),9))), '+/=', '-_,');
 				$cqIndexData[$i]['status']= $row0->cq_status;
 				$cqIndexData[$i]['cqIndex']= $row0->cq_cq_index;
 				$cqIndexData[$i]['mqIndex']= $row0->cq_mq_index;
