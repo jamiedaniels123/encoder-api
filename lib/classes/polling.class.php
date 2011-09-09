@@ -123,9 +123,9 @@ class Default_Model_Polling_Class
 						$nameArr['reversename'] = strrev( $nameArr['filename'] );
 						$nameArr['shortname'] = strrev(substr(strstr($nameArr['reversename'],'-'),1));
 						$result0 = $this->m_mysqli->query("
-							SELECT DISTINCT wf_index, wf_count, wf_status, wf_filename 
-							FROM watch_file as wf, queue_commands as cq 
-							WHERE cq.cq_filename=wf.wf_filename AND wf_fileoutname = '".$v1['file']."' ");
+							SELECT wf_index, wf_count, wf_status, wf_filename 
+							FROM watch_file
+							WHERE wf_fileoutname = '".$v1['file']."' ");
 						if ($result0->num_rows ==0) {
 								$result = $this->m_mysqli->query("	INSERT INTO `watch_file` (`wf_filename`, `wf_fileoutname`, `wf_folder`, `wf_extension`, `wf_filesize0`, `wf_filedate0`, `wf_count`, `wf_status`) 
 																	VALUES ( '".$nameArr['shortname']."',  '".$v1['file']."', '".$k0."', '.".$nameArr['extension']."', '".$v1['size']."', '".$v1['date']."', '0', 'W' )");
