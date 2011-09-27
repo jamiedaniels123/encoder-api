@@ -174,7 +174,7 @@ class Default_Model_Action_Class
 		$outFile = urlencode($mArr['source_path'].$mArr['source_filename']);
 		$inFile = $mArr['workflow']."/".$mArr['source_filename'];
 
-		chmod($destination['encoder-output'].$inFile, 0665);
+		chmod($destination['encoder-output'].$inFile, 0664);  // BH 2010921 - changed permissions to be 664 rather than 665 which is wrong
  		$retData['scp'] = $this->transfer($destination['encoder-output'].$inFile , $destination['media-scp'].$cqIndex."_".$outFile);
 //		print_r($retData['scp']);
 

@@ -39,7 +39,7 @@
 						AND `ap_status`='N' ");
 	$mysqli->query("	DELETE FROM `queue_commands` 
 							WHERE DATE(cq_time) < date_sub(curdate(), interval 6 hour)  
-							AND `cq_status`='R' ");
+							AND `cq_status` IN('R','D') ");
 	$mysqli->query("	DELETE FROM `api_log` 
 							WHERE al_timestamp < (now() - interval 24 hour) ");
 
