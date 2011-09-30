@@ -8,6 +8,7 @@
 
 require_once("./lib/config.php");
 require_once("./lib/classes/action-encoder.class.php");
+require_once("./lib/getid3/getid3.php");
 
 $mysqli = new mysqli($dbLogin['dbhost'], $dbLogin['dbusername'], $dbLogin['dbuserpass'], $dbLogin['dbname']);
 

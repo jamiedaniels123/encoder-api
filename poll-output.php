@@ -8,10 +8,13 @@
 
 require_once("lib/config.php");
 require_once("lib/classes/polling.class.php");
+//require_once("lib/getid3/getid3.php");
 
 // Initialise objects
 	$mysqli = new mysqli($dbLogin['dbhost'], $dbLogin['dbusername'], $dbLogin['dbuserpass'], $dbLogin['dbname']);
 	$pollObj = new Default_Model_Polling_Class($mysqli);	
+	//$GetId3 = new getID3(); // Used to extract the duration of the media
+	//$GetId3->setOption( array( 'encoding' => 'UTF-8' ) );
 
 	if (isset($_REQUEST['time']) && $_REQUEST['time']>=1) $time = $_REQUEST['time']; else $time=1;
 	if (isset($_REQUEST['number']) && $_REQUEST['number']>=1) $number = $_REQUEST['number']; else $number=1;

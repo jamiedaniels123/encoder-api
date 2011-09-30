@@ -227,7 +227,8 @@ class Default_Model_Action_Class
 		$retData['result'] = 'N';
 		$nameArr = pathinfo($mArr['source_filename']);
 		$inFilePath = $source['admin-scp'].$mArr['source_path'].$mArr['source_filename'];
-		$outFilePath = $destination['encoder-output'].$mArr['workflow']."/".$nameArr['filename']."-____.".$nameArr['extension'];
+		$outFilePath = $destination['encoder-output'].$mArr['workflow']."/".$nameArr['filename']."-mp3.".$nameArr['extension'];
+		//$outFilePath = $destination['encoder-output'].$mArr['workflow']."/".$nameArr['filename']."-____.".$nameArr['extension'];
 
 		if (is_dir($destination['encoder-output'].$mArr['workflow'])) {
 			$retData['scp'] = $this->transfer($inFilePath, $outFilePath);
