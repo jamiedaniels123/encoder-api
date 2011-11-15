@@ -35,7 +35,7 @@
 // Clean up old processes, completed commands and api-log
 
 	$mysqli->query("	DELETE FROM `api_process` 
-						WHERE ap_timestamp < (now() - interval 5 minute) 
+						WHERE ap_timestamp < (now() - interval 2 minute) 
 						AND `ap_status`='N' ");
 	$mysqli->query("	DELETE FROM `queue_commands` 
 							WHERE DATE(cq_time) < date_sub(curdate(), interval 6 hour)  

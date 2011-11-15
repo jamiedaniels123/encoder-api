@@ -29,7 +29,7 @@ require_once("lib/classes/polling.class.php");
 		
 		if (is_array($files))
 		{
-			print_r($files);
+//			print_r($files);
 			$pollObj->check_folder_directory($files);
 			
 		} else {
@@ -39,7 +39,7 @@ require_once("lib/classes/polling.class.php");
 		$pollObj->spawn_or_update_commands();
 
 // sleep for n seconds
-		flush();
+//		flush();  /// only needed for debug purposes if calling this directly
 //		echo $i." - ";
 		sleep($_REQUEST['time']);
 	}

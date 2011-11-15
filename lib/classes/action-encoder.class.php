@@ -19,19 +19,19 @@ class Default_Model_Action_Class
 
 	function transfer($src, $dest) {
 	
-	// Note: SCP is executed as user '_www' and it's home directory is /Library/WebServer/
-	// thus the secure keys are located in ~/.shh/ and the relevant key needs to be copied
-	// onto the relevant user account of each destination server.  Note: exact user/server set
-	// in global array $source and $destination.
+		// Note: SCP is executed as user '_www' and it's home directory is /Library/WebServer/
+		// thus the secure keys are located in ~/.shh/ and the relevant key needs to be copied
+		// onto the relevant user account of each destination server.  Note: exact user/server set
+		// in global array $source and $destination.
+		
+		$cmdline = "/usr/bin/scp -p ".escapeshellcmd($src)." ".escapeshellcmd($dest)." 2>&1";
 	
-	$cmdline = "/usr/bin/scp -p ".escapeshellcmd($src)." ".escapeshellcmd($dest)." 2>&1";
-
-//	echo "<p>Transfer cmd line =".$cmdline."</p>\n";  // debug
-//error_log("Transfer cmd line =".$cmdline);  // debug
-
-	exec($cmdline, $out, $code);
+		//	echo "<p>Transfer cmd line =".$cmdline."</p>\n";  // debug
+		//error_log("Transfer cmd line =".$cmdline);  // debug
 	
-	return array($code, $out);
+		exec($cmdline, $out, $code);
+		
+		return array($code, $out);
 	}
 
     function PsExec($commandJob) {
@@ -47,7 +47,7 @@ class Default_Model_Action_Class
 
     function PsExists($pid) {
 
-        exec("ps ax | grep $pid 2>&1", $output);
+        exec("ps ax | grep ".$pid." 2>&1", $output);
 
         while( list(,$row) = each($output) ) {
 
@@ -63,7 +63,7 @@ class Default_Model_Action_Class
     }
 
     function PsKill($pid) {
-        exec("kill -9 $pid", $output);
+        exec("kill -9 ".$pid, $output);
     }
 
 	public function startCheckProcess($apCommand) {
@@ -204,6 +204,27 @@ class Default_Model_Action_Class
 		$outFilePath = $destination['encoder-input'].$mArr['workflow']."/".$mArr['source_filename'];
 
 		if (is_dir($destination['encoder-input'].$mArr['workflow'])) {
+		
+		  // BH 20111026 - Thoughts on 'splitting' the 'default' encoding off from the rest to give better feedback
+		  // 
+		  // Issues:
+		  //  1) how to determine if a 'default' flavour is required, for example some workflows
+		  //     are just 'for transfer'.  Most likely we'll need a lookup array but this means
+		  //     it needs to be kept in sync with new workflows as they are added.
+		  //
+		  //  2) Setting the priority of the 'default' workflow(s) higher than other workflows
+		  //     won't promise quick processing as existing jobs will block access until a 'thread'
+		  //     becomes available.  Possible solution is to use an independant encoder for the
+		  //     'default' workflows that returns the files back to the relevant output folders
+		  //     on the main encoder.  This complicates the setup, particularly if EE6 used since
+		  //     it has no 'event' scripting, but it could possibly use FTP delivery - if reliable.
+		  //
+		  //  3) Archiving of the source file needs to avoid duplication, suggest the 'default'
+		  //     flavour isn't be archived.
+		  //
+		  //  4) Duplication could be done by transfering the file twice is probably best solved
+		  //     by just duplicating after transfer though a 'cp' command and then a 'mv'.
+		  //
 
 			$retData['scp'] = $this->transfer($inFilePath, $outFilePath);
 //		print_r($retData['scp']);
@@ -226,21 +247,58 @@ class Default_Model_Action_Class
 		$retData['number'] = $mNum;
 		$retData['result'] = 'N';
 		$nameArr = pathinfo($mArr['source_filename']);
-		$inFilePath = $source['admin-scp'].$mArr['source_path'].$mArr['source_filename'];
-		$outFilePath = $destination['encoder-output'].$mArr['workflow']."/".$nameArr['filename']."-mp3.".$nameArr['extension'];
-		//$outFilePath = $destination['encoder-output'].$mArr['workflow']."/".$nameArr['filename']."-____.".$nameArr['extension'];
-
-		if (is_dir($destination['encoder-output'].$mArr['workflow'])) {
-			$retData['scp'] = $this->transfer($inFilePath, $outFilePath);
-//		print_r($retData['scp']);
-			if ($retData['scp'][0]==0)
-				$retData['result']='Y';
-			else
-				$retData['result']='F';
-		} else {
-				$retData['result']='F';
-				$retData['debug']="Encoder workflow - ".$destination['encoder-output'].$mArr['workflow']." or source - ".$inFilePath." not found! ";
+		
+		// BH 20111101 - added a switch statement to add a suffix dependant on the extension so that the workflow
+		// output monitors can pick up the file and deliver to the media server.  New supported types need to be added
+		// to the switch statement.  Note, the advantage of using the workflows to monitor the suffix is that it handles
+		// delivering the files to multiple end points of the media server, for example .mp3 files go to default, ipod-all etc
+		
+		$fileExt=isset($nameArr['extension']) ? $nameArr['extension'] : "";  // test extension exists as if not creates a error
+		
+		switch (strtolower($fileExt)) {
+		  case "mp3":
+		    $suffix="-mp3";  // mp3 files are not re-transcoded
+		    break;
+		  case "pdf":
+		    $suffix="-pdf";  // note, this will not be transcripts, but files uploaded as track media
+		    break;
+		  case "m4a":
+		    $suffix="-m4a";  // audio book format, not to be transcoded
+		    break;
+		  case "m4b":
+		    $suffix="-m4b";  // another audio book format, not to be transcoded
+		    break;
+		  case "epub":
+		    $suffix="-epub";  // epub file
+		    break;
+		  default:
+	    	$suffix="";  // this should create some error my the monitoring code
 		}
+		
+		// BH 20111101 - added suffix test and error reporting
+		if ($suffix=="") {
+			// file type not recognized, abort transfer
+			$retData['result']='F';
+			$retData['debug']="File extension (".$fileExt.") not supported for transfer via encoder (with transcoding) to media server";		
+		
+		} else {	
+			// transfer file with suffix appended to filename for detection by output file monitoring, suffix workflows define subsequent handling
+			$inFilePath = $source['admin-scp'].$mArr['source_path'].$mArr['source_filename'];
+			$outFilePath = $destination['encoder-output'].$mArr['workflow']."/".$nameArr['filename'].$suffix.".".$fileExt;  // BH 20111101 altered construction to included computed suffix
+	
+			if (is_dir($destination['encoder-output'].$mArr['workflow'])) {
+				$retData['scp'] = $this->transfer($inFilePath, $outFilePath);
+	      //		print_r($retData['scp']);
+				if ($retData['scp'][0]==0)
+					$retData['result']='Y';
+				else
+					$retData['result']='F';
+			} else {
+					$retData['result']='F';
+					$retData['debug']="Encoder workflow - ".$destination['encoder-output'].$mArr['workflow']." or source - ".$inFilePath." not found!";
+			}
+		}
+		
 		return $retData;
 	}
 
@@ -252,7 +310,7 @@ class Default_Model_Action_Class
 		$retData['result'] = 'N';
 
 // Check and/or start 2s polling process
-		$apCommand="curl -d \"number=40&time=2\" ".$destination['encoder-api']."/poll-output.php";	
+		$apCommand="curl -d \"number=10&time=2\" ".$destination['encoder-api']."/poll-output.php";	
 		$this->startCheckProcess($apCommand); 
 
 		return $retData;
