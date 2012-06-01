@@ -21,13 +21,13 @@ class Default_Model_Action_Class
 		
 		// Note: SCP is executed as user '_www' and it's home directory is /Library/WebServer/
 		// thus the secure keys are located in ~/.shh/ and the relevant key needs to be copied
-		// onto the relevant user account of each destination server.  Note: exact user/server set
+		// onto the relevant user account of each destination server.  Note: exact user/server setup
 		// in global array $source and $destination.
 		
-		$cmdline = "/usr/bin/scp -p ".escapeshellcmd($src)." ".escapeshellcmd($dest)." 2>&1";
+		$cmdline = "/usr/bin/scp -p -q ".escapeshellcmd($src)." ".escapeshellcmd($dest)." 2>&1";
 		
 		//	echo "<p>Transfer cmd line =".$cmdline."</p>\n";  // debug
-		//error_log("Transfer cmd line =".$cmdline);  // debug
+		error_log("Transfer cmd line =".$cmdline);  // debug
 		
 		exec($cmdline, $out, $code);
 		
@@ -68,51 +68,73 @@ class Default_Model_Action_Class
 
 	public function startCheckProcess($apCommand) {
 
-// Check poll process and launch if not running. The Poll process polls both Media and Encoder APIs for completed tasks.
+		// Check poll process and launch if not running. The Poll process polls both Media and Encoder APIs for completed tasks.
 		$result0 = $this->m_mysqli->query("
 			SELECT ap_process_id, ap_script, ap_status 
 			FROM api_process 
 			WHERE ap_status = 'Y' 
 			ORDER BY ap_timestamp DESC");
-		/* 
-		// BH 20120326 DO NOT ENABLE mysqli reference wrong!
-		if ($this->m_mysqli->mysqli_connect_errno()) {
-		  //error_log("Failed to connect to MySQL (/index.php): " . mysqli_connect_error());
+		 
+		// BH 20120326
+		if ($this->m_mysqli->errno) {
+		  error_log("action: startCheckProcess: query failed: ".$this->m_mysqli->error);
 		  // go no further as the MySQL server is no doubt saturated
 		  exit();
 		}
-		*/
-error_log("action: startCheckProcess ".$apCommand);
+		
+		//error_log("action: startCheckProcess ".$apCommand);
 
 		$j=0;
 		if ($result0->num_rows >=1) {
+			//error_log("action: startCheckProcess number of results ".$result0->num_rows);
 			while(	$row0 = $result0->fetch_object()) {
 				if ($this->PsExists($row0->ap_process_id)) {
 					if ($j==0) {
+						//error_log("action: startCheckProcess PsExists ".$row0->ap_process_id);
 						$this->m_mysqli->query("
 							UPDATE `api_process` 
 							SET `ap_status`='Y', `ap_last_checked`='".date("Y-m-d H:i:s", time())."' 
 							WHERE `ap_process_id`=  '".$row0->ap_process_id."' ");
+						if ($this->m_mysqli->errno) {
+						  // go no further as the MySQL server is no doubt saturated
+						  exit();
+						}
 						$j=1;
 					} else {
+						//error_log("action: startCheckProcess PsKill ".$row0->ap_process_id);
 						$this->PsKill($row0->ap_process_id);
 						$this->m_mysqli->query("
 							UPDATE `api_process` 
 							SET `ap_status`='N', `ap_last_checked`='".date("Y-m-d H:i:s", time())."' 
 							WHERE `ap_process_id`=  '".$row0->ap_process_id."' ");
+						if ($this->m_mysqli->errno) {
+						  // go no further as the MySQL server is no doubt saturated
+						  exit();
+						}
 					}
 				} else  {
-						$this->m_mysqli->query("
-							UPDATE `api_process` 
-							SET `ap_status`='N', `ap_last_checked`='".date("Y-m-d H:i:s", time())."' 
-							WHERE `ap_process_id`=  '".$row0->ap_process_id."' ");
+					//error_log("action: startCheckProcess process no longer exists update database ".$row0->ap_process_id);
+					$this->m_mysqli->query("
+						UPDATE `api_process` 
+						SET `ap_status`='N', `ap_last_checked`='".date("Y-m-d H:i:s", time())."' 
+						WHERE `ap_process_id`=  '".$row0->ap_process_id."' ");
+					if ($this->m_mysqli->errno) {
+					  // go no further as the MySQL server is no doubt saturated
+					  exit();
+					}
 				}
 			}
 		}
 		
 		if ($j==0) {
+		
 				$processID=$this->PsExec($apCommand);
-				if ($processID==false) $status='N'; else $status='Y';  
+				if ($processID==false) {
+					$status='N'; 
+				} else {
+					$status='Y';
+				}  
+				//error_log("action: startCheckProcess Start new process ".$processID);
 				$result = $this->m_mysqli->query("
 					INSERT INTO `api_process` (`ap_process_id`, `ap_script`, `ap_timestamp`, `ap_status`) 
 					VALUES ( '".$processID."',  '".$apCommand."', '".date("Y-m-d H:i:s", time())."', '".$status."' )");
@@ -137,7 +159,9 @@ error_log("action: startCheckProcess ".$apCommand);
 	{	
 
 		$retData= array( 	'command'=>$action, 'number'=>'', 'data'=>$mArr, 'status'=>'NACK', 'error'=>'' ) ;
+		error_log("action-encoder > queueAction | mArr = ".serialize($mArr));
 		$nameArr = pathinfo($mArr['source_filename']);
+		error_log("action-encoder > queueAction | nameArr =".$nameArr['filename']);
 		$this->m_mysqli->query("
 			INSERT INTO `queue_commands` (`cq_command`, `cq_filename`, `cq_cq_index`, `cq_mq_index`, `cq_step`, `cq_data`, `cq_time`, `cq_update`, `cq_status`) 
 			VALUES ('".$action."','".$nameArr['filename']."','".$cqIndex."','".$mqIndex."','".$step."','".serialize($mArr)."','".date("Y-m-d H:i:s", $timestamp)."', '', 'N')");
@@ -188,42 +212,92 @@ error_log("action: startCheckProcess ".$apCommand);
 		$retData = $mArr;
 		$retData['number'] = $mNum;
 		$retData['result'] = 'N';
-				
+		
+		// add the source_folder in front of fiename
+		// Note: exact reason for doing this uncertain, though related to behaviour in media-podcast-api.
 		$outFile = urlencode($mArr['source_path'].$mArr['source_filename']);
+		$sourceFile = urlencode($mArr['source_filename']);
 		
 		// BH 20120222 - removed 'workflow' from path as all Output now goes to a common directory - the 'Outbox'
-		$inFile = $source['encoder-outbox'].$mArr['source_filename'];
-		// $inFile = $mArr['workflow']."/".$mArr['source_filename'];
-		error_log("doEncoderPushToMedia | ".$mArr." | ".$mNum." | ".$cqIndex." | ".$step." | ".$inFile);
-    if (file_exists($destination['encoder-output'].$inFile)) {
-      // BH 20120324 - added check that file exists as appears possible for system to look for a file that has since
-      // been removed from the output
-			chmod($destination['encoder-output'].$inFile, 0664);  // BH 2010921 - changed permissions to be 664 rather than 665 which is wrong
-	 		$retData['scp'] = $this->transfer($destination['encoder-output'].$inFile , $destination['media-scp'].$cqIndex."_".$outFile);
-	//		print_r($retData['scp']);
+		//               and switched to using the whole path to the file to save appending output path.
+		$sourceFilePath = $source['encoder-outbox'].$mArr['source_filename'];
+		
+		error_log("action-encoder.class > doEncoderPushToMedia | ".$mArr." | ".$mNum." | ".$cqIndex." | ".$step." | ".$sourceFilePath." | ".$outFile);
+
+    // BH 20120324 - added check that file exists as appears possible for system to look for a file that has through
+    // some other method (human or system) been removed from the output
+    if (file_exists($sourceFilePath)) {
+      // BH 2010921 - change permissions to be 0664 so that remote file system has RW access via group
+			chmod($sourceFilePath, 0664);
+			// BH 20120410 Note: output filename is prefixed with the 'cqIndex' value.  Reason at this time somewhat uncertain
+	 		$retData['scp'] = $this->transfer($sourceFilePath , $destination['media-scp'].$cqIndex."_".$outFile);
 	
 			if ($retData['scp'][0]==0) {
 				$retData['result']='Y'; 
-	
-				$result0 = $this->m_mysqli->query("
-					SELECT cq_filename 
-					FROM queue_commands
-					WHERE cq_filename = '".$mArr['source_filename']."' AND cq_status='N' AND cq_step=".$step." ");
-				if ($result0->num_rows==1) {
-					unlink($destination['encoder-output'].$inFile);
-				}
 			} else {
 				$retData['result']='F';
-				// BH 20120222 - removed 'workflow' from path as all Output now goes to a common directory - the 'Outbox'
-				$retData['debug']="Encoder workflow/file - ".$destination['encoder-output'].$inFile." failed to transfer. encoder-outbox = ".$source['encoder-outbox'];
-				// $retData['debug']="Encoder workflow/file - ".$destination['encoder-output'].$mArr['workflow']."/".$mArr['source_filename']." not found! ";
-			}
+				$retData['debug']="Encoder workflow/file - ".$sourceFile." failed to transfer to media server.";
+				error_log("action-encoder.class > doEncoderPushToMedia | failed to transfer to media server, file ".$sourceFile);
+			}						
     } else {
-      // BH 20120324 - file doesn't exist, log an error
-				$retData['result']='F';
-				$retData['debug']="Encoder workflow/file - ".$destination['encoder-output'].$inFile." not found. encoder-outbox = ".$source['encoder-outbox'];
+      // BH 20120324 - file doesn't exist for some reason, log an error
+			$retData['result']='F';
+			$retData['debug']="Encoder workflow/file - ".$sourceFilePath." not found in encoder-outbox (".$source['encoder-outbox'].")";
+			error_log("action-encoder.class > doEncoderPushToMedia | not found in encoder-outbox (".$source['encoder-outbox']."), file ".$sourceFile);
     }
 
+		// determine the matching watch_file record and decrement the wf_transfers_pending field
+		// Note: we do this even if there is an error to ensure that each message whether successful or failed
+		//       is considered 'transfered' to allow the watch_file record and assciated file to be removed from
+		//       the system going forward.
+		//       TODO: Improve file transfer errors to allow 're-tries' in case destination server offline, this
+		//       would require some extra tracking of re-tries and only afterwards would the 'wf_transfers_pending'
+		//       be decremented.
+		// if wf_transfers_pending now zero (or less) then
+		//   delete the file
+		//   update watch_file wf_status to 'R'  (D or 'C' maybe better, for 'Done' or 'Complete', DB schema would need updating)
+		if ($retData['result']=='Y') {		
+			$result = $this->m_mysqli->query("
+				UPDATE `watch_file` 
+				SET `wf_transfers_pending`= `wf_transfers_pending` - 1
+				WHERE wf_fileoutname='".$mArr['source_filename']."' AND `wf_transfers_pending` > 0");
+		} else {
+			// error of some sort occured in file transfer, increment 'wf_transfer_error_count' in
+			// addition to decrement 'wf_transfers_pending'.  At present this is for information only
+			// and servers no function purpose.
+			$result = $this->m_mysqli->query("
+				UPDATE `watch_file` 
+				SET `wf_transfers_pending`= `wf_transfers_pending` - 1, `wf_transfer_error_count` = `wf_transfer_error_count` + 1
+				WHERE `wf_fileoutname`='".$mArr['source_filename']."' AND `wf_transfers_pending` > 0");
+		}
+		// check whether any more file transfers are pending
+		$result = $this->m_mysqli->query("
+			SELECT `wf_transfers_pending`
+			FROM `watch_file` 
+			WHERE `wf_fileoutname`='".$mArr['source_filename']."' AND `wf_transfers_pending` = 0");
+		if ($result->num_rows == 1) {
+			// no more transfers pending, update record in watch_file.  This will eventually be cleaned up as part of maintenance cycle
+			$result = $this->m_mysqli->query("
+				UPDATE `watch_file` 
+				SET `wf_status`= 'R'
+				WHERE wf_fileoutname='".$mArr['source_filename']."' AND `wf_transfers_pending` = 0");
+			// delete file as no longer needed
+			error_log("action-encoder.class > doEncoderPushToMedia | All transfers completed, attempting to delete file: ".$sourceFilePath);
+			if (file_exists($sourceFilePath)) {
+				if (unlink($sourceFilePath)) {
+					error_log("action-encoder.class > doEncoderPushToMedia | Successfully deleted file ".$sourceFilePath);
+				} else {
+					error_log("action-encoder.class > doEncoderPushToMedia | Failed to delete file ".$sourceFilePath);
+				}
+			} else {
+				error_log("action-encoder.class > doEncoderPushToMedia | file does not exist, can not delete file: ".$sourceFilePath);
+			}
+			// TODO: If there have been any transfer errors (detect via wf_transfer_error_count) then
+			// instead of deleting the file move to a failed directory and send a notification
+			//
+			// rename($sourceFilePath, $destination['encoder-failed-transfer'].$sourceFile);			
+		}
+		
 		return $retData;
 	}
 
@@ -256,7 +330,7 @@ error_log("action: startCheckProcess ".$apCommand);
 	public function doEncoderPullToInput($mArr,$mNum,$cqIndex,$step)
 //	public function doEncoderPullToInbox($mArr,$mNum,$cqIndex,$step)
 	{
-		global $source, $destination; 
+		global $source, $destination, $workflow_outputs; 
 		
 		// BH 20120215 New action tht pulls files (that need encoding) to generic 'Inbox' where
     //             the Workflow is then used to push the file on further.  In the current implementation
@@ -301,9 +375,33 @@ error_log("action: startCheckProcess ".$apCommand);
 		$inFilePath = $source['admin-scp'].$mArr['source_path'].$mArr['source_filename'];
 		$outFilePath = $destination['encoder-inbox'].$mArr['source_filename'];
 
-		// check the destination directory exists (not we don't have separate 'workflow' directories)
+		// simplify workflow by removing the extra watermark and trailers, this will eventually be removed on podcast-admin(-api)
+		if (stripos($mArr['workflow'], "video") !== false ) {
+			// workflow is video, remove the extra watermark and trailers
+			$workflow=str_replace(array("-watermark","-trailers"), "", $mArr['workflow']);
+		} else {
+			$workflow=$mArr['workflow'];
+			$workflowKey="'".$workflow."'";
+		}
+		error_log("Workflow ".$workflow);
+		// check workflow is recognised
+		if (array_key_exists($workflow, $workflow_outputs)) {
+			error_log("action-encoder > doEncoderPullToInput | workflow_outputs recognised (".$workflow.")");
+		} else {
+			error_log("action-encoder > doEncoderPullToInput | workflow_outputs not recognised (".$workflow.")");
+			$retData['result']='F';
+			$retData['debug']="Encoder workflow (".$workflow.") not recognised by encoder";
+			return $retData;
+		}
+
+		// BH 20120421 TODO: Add support for 'forcing' the aspect to either 16:9 (wide) or 4:3 (sd) which is when the user selects
+		// 									 an aspect ratio otherwise we simply 'letterbox' any video to the nearest appropriate aspect ratio.
+		//									 For now we simply define a variable for future use.
+		$videoAspectRatio="letterbox";  // supported values; 'force_wide', 'force_sd', 'letterbox'
+
+		// check the destination directory exists (BH: not we don't have directly mapped 'workflow' directories)
 		if (is_dir($destination['encoder-input'])) {
-		  //directory exists - pull file to directory
+		  //directory exists - pull file to 'inbox' directory
 			$retData['scp'] = $this->transfer($inFilePath, $outFilePath);
 			//		print_r($retData['scp']);
 			if ($retData['scp'][0]==0) {
@@ -311,15 +409,49 @@ error_log("action: startCheckProcess ".$apCommand);
 			  // (Feature addition: delete file after pulling via SSH?)
 			  //
 			  // To be implemented
-			  //  a) at present the various 'flavours' are not supported as it is autoamtically
+			  //  a) at present the various 'flavours' are not supported as it is automatically
 			  //     assumed that YouTube and iTunes U Public will have bumpers and trailers.
 			  //     The primary variation is iTunes U Private that needs Watermarks but no bumpers
 			  //     and trailers which is why support was originally provided
 			  
 				$retData['result']='Y';
+				// add workflow flavours to data for tracking of encoder output
+				$retData['workflow_outputs']=$workflow_outputs[$workflow];
+				
+				// Add workflow_flavours array to $retData so we can track progress of each flavour. The source array is
+				// set in the config.php file.
 				
 				$sourceFilePath=$outFilePath;
 				
+				// Determine if video is interlaced
+				$videointerlaced=false;
+		
+				if (stripos($mArr['workflow'], "audio") !== false ) {
+				  // file is an audio file
+				} else {
+				  // Use MediaInfo CLI (http://mediainfo.sourceforge.net/) to check if video is
+				  // interlaced or not
+					// BH 20120421 - make sure that the webuser account (_www on OS X) has permissions to run MediaInfo in /usr/local/bin/
+				  $mediaInfoCmd="/usr/local/bin/MediaInfo --inform='Video;%ScanType%' ".$sourceFilePath." 2>&1";
+				  error_log("action-encoder > doEncoderPullToInput | mediaInfoCmd = ".$mediaInfoCmd);
+				  
+				  exec($mediaInfoCmd, $out, $code);
+				  
+				  if ($code == 0) {
+				    $scantype=$out[0]; //line 1 of output
+				    $videointerlaced = ($scantype=="Progressive") ? false : true;
+				    if ($videointerlaced) {
+				      error_log("action-encoder > doEncoderPullToInput | determined video scan type is INTERLACED (".$scantype.")");
+				    } else {
+				      error_log("action-encoder > doEncoderPullToInput | determined video scan type is PROGRESSIVE (".$scantype.")");
+				    }
+				  } else {
+				    error_log("action-encoder > doEncoderPullToInput | WARNING: unable to determine video scan type, assuming progressive");
+				    $videointerlaced=false;
+				  }
+				}
+				$deinterlace = ($videointerlaced) ? "-deinterlace/" : "/" ;
+
 				if (strpos($mArr['workflow'],"audio-") === 0) {
 				  // workflow starts with audio-
 				  $destinationFilePath=$destination['eon-input'].$mArr['source_filename'];
@@ -330,10 +462,12 @@ error_log("action: startCheckProcess ".$apCommand);
 					  // workflow is a screencast-wide-* flavour
 					  $destinationFilePath=$destination['eon-input'].$mArr['source_filename'];				
 				    $defaultEncodingFilePath=$destination['encoder-input']."default-screencast-wide/".$mArr['source_filename'];
+				    // $defaultEncodingFilePath=$destination['encoder-input']."default-screencast-wide".$deinterlace.$mArr['source_filename'];
 					} else {
 					  // workflow is a screencast-* flavour
 					  $destinationFilePath=$destination['eon-input'].$mArr['source_filename'];
   				  $defaultEncodingFilePath=$destination['encoder-input']."default-screencast/".$mArr['source_filename'];
+  				  //$defaultEncodingFilePath=$destination['encoder-input']."default-screencast".$deinterlace.$mArr['source_filename'];
 					}
 
 				} elseif (strpos($mArr['workflow'],"video-") === 0) {
@@ -341,18 +475,23 @@ error_log("action: startCheckProcess ".$apCommand);
 					if (strpos($mArr['workflow'],"video-wide") === 0) {
 					  // workflow is a video-wide-* flavour
 					  $destinationFilePath=$destination['eon-input'].$mArr['source_filename'];
-				    $defaultEncodingFilePath=$destination['encoder-input']."default-video-wide/".$mArr['source_filename'];
+				    $defaultEncodingFilePath=$destination['encoder-input']."default-video-wide".$deinterlace.$mArr['source_filename'];
 					} else {
 					  // workflow is a video-* flavour
 					  $destinationFilePath=$destination['eon-input'].$mArr['source_filename'];
-				    $defaultEncodingFilePath=$destination['encoder-input']."default-video/".$mArr['source_filename'];
+				    $defaultEncodingFilePath=$destination['encoder-input']."default-video".$deinterlace.$mArr['source_filename'];
 					}
-
 				}
 
-				// transfer file to Eon prior to starting encoding here
  		    chmod($sourceFilePath, 0664);  // changed permissions to be 664
- 		  	$retData['scp-eon'] = $this->transfer($sourceFilePath, $destinationFilePath);
+ 		    // TODO: should check success/fail
+
+				// transfer file to Eon prior to starting encoding here
+				// Eon will then pass the file onto PcP cluster for creating all flavours other than the 'default'
+				// flavour which is created on EE6 on this encoder, improving the throughput of the default
+				// encoding and avoiding bottlenecking due to big job creating many flavours.
+				$retData['scp-eon'] = $this->transfer($sourceFilePath, $destinationFilePath);
+ 		  	// TODO: should check success/fail
  		  	
 	  		// call remote web page to start processing of the transfered file.
 	  		// Note: We don't have the other server 'pull' this file as we won't then
@@ -361,24 +500,23 @@ error_log("action: startCheckProcess ".$apCommand);
 	  		// this gives us a chance to also send additional information - ie workflow
 	  		// and of course the filename.
 	  		
-	  		// simplify workflow by removing the extra watermark and trailers, this will eventually be removed on podcast-admin
-	  		$workflow=str_replace(array("-watermark","-trailers"), "", $mArr['workflow']);
-	  		// Hard coding workflow submission to Eon
-	  		//$workflow="video-wide-1080";
+	  		// TODO: Change  Hard coding workflow submission to Eon to the config.php page
+	  		//       to avoid having to track down server specific properties in code
 				$filename=$mArr['source_filename'];
 				$url = "http://eon.open.ac.uk/submit/";
 				$ch = curl_init();
 				
-				$data=array('workflow' => $workflow, 'filename' => $filename);
+				$data=array('workflow' => $workflow, 'filename' => $filename, 'videointerlaced' => $videointerlaced, 'videoaspectratio' => $videoAspectRatio);
 				curl_setopt($ch, CURLOPT_URL, $url);
 				curl_setopt($ch, CURLOPT_POST, 1);
 				curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
 				curl_exec($ch);										
 				curl_close($ch);
- 		  		
-				// start default encoding
+ 		  	// TODO: should check success/fail of CURL
+ 		  	
+				// start 'default' encoding in EE6 (on this encoder)
 				$moved=rename($sourceFilePath, $defaultEncodingFilePath);
-
+				// TODO: should check success/fail of move
 			} else {
 				$retData['result']='F';
 			}
@@ -434,18 +572,22 @@ error_log("action: startCheckProcess ".$apCommand);
 		} else {	
 			// transfer file with suffix appended to filename for detection by output file monitoring, suffix workflows define subsequent handling
 			$inFilePath = $source['admin-scp'].$mArr['source_path'].$mArr['source_filename'];
-			$outFilePath = $destination['encoder-output'].$mArr['workflow']."/".$nameArr['filename'].$suffix.".".$fileExt;  // BH 20111101 altered construction to included computed suffix
-	
-			if (is_dir($destination['encoder-output'].$mArr['workflow'])) {
+			// $outFilePath = $destination['encoder-output'].$mArr['workflow']."/".$nameArr['filename'].$suffix.".".$fileExt;  // BH 20111101 altered construction to included computed suffix
+			// revised to support single outbox, rather than workflow folders which are no longer supported
+			$outFilePath = $destination['encoder-outbox'].$nameArr['filename'].$suffix.".".$fileExt;  // BH 20111101 altered construction to included computed suffix
+			
+			// this test not really needed anymore, and is left over from an early version that used individual workflow folders
+			if (is_dir($destination['encoder-outbox'])) {
 				$retData['scp'] = $this->transfer($inFilePath, $outFilePath);
 	      //		print_r($retData['scp']);
 				if ($retData['scp'][0]==0)
 					$retData['result']='Y';
 				else
 					$retData['result']='F';
+					$retData['debug']="Encoder unable to transfer file from admin - ".$inFilePath." to ".$outFilePath;
 			} else {
 					$retData['result']='F';
-					$retData['debug']="Encoder workflow - ".$destination['encoder-output'].$mArr['workflow']." or source - ".$inFilePath." not found!";
+					$retData['debug']="Encoder outbox not found - ".$destination['encoder-outbox']." not found!";
 			}
 		}
 		
@@ -459,10 +601,19 @@ error_log("action: startCheckProcess ".$apCommand);
 		$retData['number'] = $mNum;
 		$retData['result'] = 'N';
 
-// Check and/or start 2s polling process
-		$apCommand="curl -d \"number=10&time=2\" ".$destination['encoder-api']."/poll-output.php";	
-		$this->startCheckProcess($apCommand); 
-//error_log("doEncoderCheckOutput - ". $apCommand);
+		// BH 20120415 - Disabled call to 'startCheckProcess' as introducing a separate shell script process
+		//               that will call 'poll-output.php' at regular intervals but as a single process rather than
+		//               via a cron job.  Using a single process means we don't run the risk of multiple processes
+		//               possibly running together and executing the same task from the database resulting in duplication
+		//               and worst case overloading the MySQL database with queries.
+		//
+		//               TODO: Changed the 'result' to 'W' so that this funciton doesn't get repeated called while it waits
+		
+		// Check and/or start 2s polling process
+		
+		//$apCommand="curl -d \"number=10&time=2\" ".$destination['encoder-api']."/poll-output.php";	
+		//$this->startCheckProcess($apCommand); 
+		//error_log("doEncoderCheckOutput - ". $cqIndex);
 		return $retData;
 	}
 
@@ -501,11 +652,12 @@ error_log("action: startCheckProcess ".$apCommand);
 				$retData['data']=$cqIndexData; 
 				$retData['status']= 'Y';
 				$retData['number']= $i+1;
-// error_log("Error = ".json_encode($retData));  // debug
 			} else {
 				$retData['data']='Encoder api - Nothing to do!';
 			}
 		}
+		//error_log("action-encoder > doPollEncoder | retData = ".json_encode($retData));  // debug
+
 		return $retData;
 	}
 
